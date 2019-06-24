@@ -13,25 +13,25 @@ Lemma bool_dec (x y : bool) :
   dec (x = y).
 Proof.
   destruct x, y.
-  - left. reflexivity.
-  - right. congruence.
-  - right. congruence.
-  - left. reflexivity.
-Defined.
+  - now left.
+  - right. discriminate.
+  - right. discriminate.
+  - now left.
+Qed.
 
 Lemma nat_dec (x y : nat) :
   dec (x = y).
 Proof.
   induction x as [|x IH] in y |-*.
   - destruct y.
-    + left. reflexivity.
-    + right. congruence.
+    + now left.
+    + right. discriminate.
   - destruct y.
-    + right. congruence.
-    + specialize (IH y) as [<-|H].
-      * left. reflexivity.
-      * right. congruence.
-Defined.
+    + right. discriminate.
+    + specialize (IH y) as [IH|IH].
+      * left. now rewrite IH.
+      * right. intros H. congruence.
+Qed.
 
 (*** Exercise 8.2 *)
 
@@ -44,17 +44,22 @@ Lemma elim_equiv B (a b : B) :
   (forall p, p a -> p b -> forall x, p x) <=> forall x, {x = a} + {x = b}.
 Proof.
   split.
-  - intros H x. specialize (H (fun x => {x = a} + {x = b})). apply H; auto.
-  - intros H p f g x. destruct (H x) as [e|e]; now rewrite e.
-Defined.
+  - intros H. apply H.
+    + now left.
+    + now right.
+  - intros H p f g x. specialize (H x) as [H|H]; now rewrite H.
+Qed.
 
 (*** Exercise 8.3 *)
 
 Goal forall f : bool -> bool, (exists x, f x = true) -> { x | f x = true }.
 Proof.
-  intros f.
-  Abort.
-
+  intros f H. destruct (f true) eqn: H1.
+  - now exists true.
+  - destruct (f false) eqn: H2.
+    + now exists false.
+    + exists true. exfalso. destruct H as [[|] H]; congruence.
+Qed.
 
 (*** Exercise 8.4 *)
 
@@ -64,7 +69,7 @@ Definition WO := forall (f : nat -> bool), tsat f -> { n | f n = true }.
 Goal WO -> forall f, tsat f <=> { n | f n = true }.
 Proof.
   intros wo f. split.
-  - intros t. apply (wo f t).
+  - apply wo.
   - intros [n H]. now exists n.
 Qed.
 
@@ -81,14 +86,16 @@ Proof.
   - intros H.
     exists (fun x => if H x then true else false).
     intros x. destruct (H x) as [H1|H1].
-    tauto. intuition. discriminate.
+    tauto. intuition; discriminate.
 Qed.
 
 Goal WO -> forall p : nat -> Prop, (forall x, dec (p x)) -> ex p -> sig p.
 Proof.
-  intros wo p H1 H2. 
-  Abort.
-
+  intros wo p H1 H2. destruct (cdec_bdec _ p) as [f g].
+  apply g in H1 as [a H1]. enough ({x : nat | a x = true}).
+  - destruct H. exists x. now apply H1.
+  - apply wo. destruct H2. exists x. now apply H1.
+Qed.
 
 (*** Exercise 8.5 *)
 
@@ -102,43 +109,43 @@ Section WO.
   Lemma lem1 n :
     f n = true -> G n.
   Proof.
-    intros H. apply GI. congruence.
+    intros H. apply GI. intros H2. exfalso. congruence.
   Qed.
 
   Lemma lem2 n :
     G (S n) -> G n.
   Proof.
-    intros H. apply GI. now intros.
+    intros H. now apply GI.
   Qed.
 
   Lemma lem3 :
     tsat f -> G 0.
   Proof.
-    intros [n H]. destruct (lem1 n).
-    Abort.
-
+    unfold tsat.
+    intros H. destruct H. apply lem1 in H. induction x. 
+    - exact H.
+    - now apply IHx, lem2.
+  Qed.
 
 (*** Exercise 8.6 *)
 
   Definition elim__G Z : (forall n, (f n = false -> Z) -> Z) -> forall n, G n -> Z :=
-    fun g => fix F n a := let (h) := a in g n (fun e => F (S n) (h e)).
+    fun g  => fix F n a := match a with GI _ h => g n (fun e => g (S n) h e) end. 
 
   Definition lem4 n :
     G n -> { k | f k = true }.
   Proof.
-    induction 1 as [n IH] using elim__G.
-    destruct (f n) eqn:H1.
-    - exists n. exact H1.
-    - apply IH. reflexivity.
-  Qed.
+    (*...*)
+  Admitted.
 
 End WO.
 
 Theorem wo :
   WO.
 Proof.
-  intros f H.
-  Abort.
+  (*...*)
+Admitted.
+
 
 
 (*** Exercise 8.7 *)
@@ -148,17 +155,15 @@ Definition sdec X :=
 
 Goal forall X Y, X <-> Y -> sdec X -> sdec Y.
 Proof.
-  intros X Y H [f H1].
-  exists f. split.
-  - intros y. apply H1. now apply H.
-  - intros tf. apply H. now apply H1.
-Qed.
+  (*...*)
+Admitted.
 
 Goal forall X Y, sdec X -> sdec Y -> sdec (X \/ Y).
 Proof.
-  intros X Y [f [a b]] [g [c d]].
-  exists (fun n => f n || g n). split.
-  Abort.
+  (*...*)
+Admitted.
+
+
 
 (*** Exercise 8.8 *)
 
@@ -170,7 +175,8 @@ Definition Post: Type :=
 
 Goal Markov -> Post.
 Proof.
-  intros M X [f H1] [g H2]. Abort.
+  (*...*)
+Admitted.
 
 Goal Post -> Markov.
 Proof.
@@ -183,8 +189,9 @@ Admitted.
 
 Goal forall X, (X \/ ~ X) -> sdec X -> sdec (~ X) -> dec X.
 Proof.
-  intros X H [f Hf] [g Hg].
-  left. apply Hf. unfold tsat.
+  (*...*)
+Admitted.
+
 
 
 (*** Exercise 8.10 *)
