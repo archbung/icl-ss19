@@ -103,7 +103,7 @@ Lemma even_spec x :
   even x <-> exists k, x = k * 2.
 Proof.
   split.
-  - induction 1 as [|n _ [k IH]].
+  - induction 1 as [|n _ [k IH]] using elim_even.
     + now exists 0.
     + exists (S k). now rewrite IH.
   - intros [k ->]. induction k as [|k IH]; cbn.
@@ -123,7 +123,7 @@ Qed.
 Lemma even1 :
   ~ even 1.
 Proof.
-  intros H%even_spec. destruct H as [k H]. lia.
+  intros H. inversion H.
 Qed.
 
 Lemma even_not_S x :
@@ -134,6 +134,16 @@ Proof.
   apply even_spec in H1. destruct H1 as [k' H1]. lia.
 Qed.  
 
+(* Inversion lemma *)
+Lemma even_inv n :
+  even (S (S n)) -> even n.
+Proof.
+  enough (H: forall n m, m = (S (S n)) -> even m -> even n).
+  - now apply H.
+  - intros n' m H1 H2. revert H1. induction H2 as [|m IH].
+    + lia.
+    + intros [= H]. now rewrite <- H.
+Qed.
 
 (*** Exercise 10.7 ***)
 
@@ -151,7 +161,9 @@ Section DT.
 
   Goal forall x, dec (even x).
   Proof.
-  Admitted.
+    intros x. induction x as [|x IH]; cbn.
+    - left. constructor.
+    Abort.
 
 End DT.
 
@@ -173,10 +185,21 @@ Inductive le (x : nat) : nat -> Prop :=
 | leS y : le x y -> le x (S y).
 
 (* Formulate and define the eliminator. *)
-Definition elim_le (p : nat -> nat -> Prop) x :
-  p x x -> (forall y, le x y -> p x y -> p x (S y)) -> forall y, le x y -> p x y :=
+Definition elim_le (p : nat -> Prop) x :
+  p x -> (forall y, le x y -> p y -> p (S y)) -> forall y, le x y -> p y :=
   fun a f => fix F y h := match h with leB _ => a | leS _ y' h' => f y' h' (F y' h') end.
   
+Lemma spec_le x y :
+  le x y <-> exists k, k + x = y.
+Proof.
+  split.
+  - revert y. apply elim_le.
+    + now exists 0.
+    + intros y H [k IH]. exists (S k). lia.
+  - intros [k <-]. induction k.
+    + constructor.
+    + cbn. now constructor.
+Qed.
 
 (*** Exercise 10.9 ***)
 
@@ -238,6 +261,17 @@ Lemma double_spec x y :
   double x y <-> x = 2 * y.
 Proof.
   split.
-  - intros H. induction H.
+  - intros H. induction H; cbn.
     + reflexivity.
-    + cbn. rewrite PeanoNat.Nat.add_0_r. 
+    + rewrite IHdouble. lia.
+  - intros H. induction x; cbn.
+    + rewrite H. destruct y.
+      * constructor.
+      * rewrite <- H. lia.
+    + rewrite H. destruct y.
+      * constructor.
+      * Admitted.
+
+Inductive U (p : nat -> Prop) : nat -> Prop :=
+| UB : UB 0.
+| US n : U p n -> forall
